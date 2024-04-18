@@ -20,12 +20,131 @@
 </head>
 <body>
 <script type="module">
-    import {get_default_lil_gui, ThreeEngine, refresh_displays} from "../js/utils/utils_three.js";
+    // import {get_default_lil_gui, ThreeEngine, refresh_displays} from "../js/utils/utils_three.js";
 
     // todo: create a visualization that demonstrates your knowledge of quaternions.  This is intentionally
     // todo: open-ended.  Be as creative as you want, or feel free to recreate any of the visualizations
     // todo: found in Section 3.3.
 
+    import { ThreeEngine, get_default_lil_gui } from "../js/utils/utils_three.js";
+    import {
+        mul_matrix_matrix, transpose, add_matrix_matrix, sub_matrix_matrix,
+        mul_matrix_scalar, identity_matrix, cross_product,
+        dot_product, frobenius_norm_matrix} from "../js/utils/utils_math.js";
+    import {refresh_displays} from "../js/utils/utils_three.js";
+
+    function draw_quaternion(engine, q, color) {
+        engine.draw_debug_vector([0, 0, 0], [q[1], q[2], q[3]], 0.035, undefined, color);
+        let delta = 0.1;
+        engine.draw_debug_line(
+            [q[1], q[2], q[3] - q[0] - delta],
+            [q[1], q[2], q[3] + q[0] + delta],
+            0.015, undefined, 0);
+        engine.draw_debug_sphere([q[1], q[2], q[3] + q[0]], 0.05, color, 1, 5);
+        for(let h = 0; h < Math.abs(q[0]) + delta; h += 0.1) {
+            engine.draw_debug_sphere([q[1], q[2], q[3] + h], 0.02, 0, 1, 5);
+            engine.draw_debug_sphere([q[1], q[2], q[3] - h], 0.02, 0, 1, 5);
+        }
+    }
+
+    function mult_quaternions(p, q) {
+        return [
+            p[0] * q[0] - p[1] * q[1] - p[2] * q[2] - p[3] * q[3],
+            p[0] * q[1] + p[1] * q[0] + p[2] * q[3] - p[3] * q[2],
+            p[0] * q[2] - p[1] * q[3] + p[2] * q[0] + p[3] * q[1],
+            p[0] * q[3] + p[1] * q[2] - p[2] * q[1] + p[3] * q[0]
+        ];
+    }
+
+    function visualize_multiplication(engine, p, q) {
+        let v1 = [[p[1]], [p[2]], [p[3]]];
+        let v2 = [[q[1]], [q[2]], [q[3]]];
+        let w1 = p[0];
+        let w2 = q[0];
+        let v1xv2 = cross_product(v1, v2);
+        let w1v2 = mul_matrix_scalar(v2, w1);
+        let w2v1 = mul_matrix_scalar(v1, w2);
+        let v1dotv2 = dot_product(v1, v2);
+        engine.draw_debug_vector([0, 0, 0], v1xv2, 0.035, undefined, 0x2332A2, 0.2);
+        engine.draw_debug_vector(v1xv2, add_matrix_matrix(w1v2, v1xv2), 0.035, undefined, 0x2332A2, 0.2);
+        engine.draw_debug_vector(add_matrix_matrix(w1v2, v1xv2), add_matrix_matrix(add_matrix_matrix(w1v2, v1xv2), w2v1), 0.035, undefined, 0x2332A2, 0.2);
+        let pq = mult_quaternions(p, q);
+        draw_quaternion(engine, pq, 0x000000);
+    }
+
+    function conjugate(p) {
+        return [p[0], -p[1], -p[2], -p[3]];
+    }
+
+    let engine = ThreeEngine.new_default_3d();
+    //engine.add_suzanne_monkey_as_mesh_object(0x00eeff);
+    //engine.toggle_mesh_object_wireframe_visibility(0);
+
+
+    let settings = {
+        w1: 1,
+        x1: 1,
+        y1: 0,
+        z1: 0,
+        norm1: Math.sqrt(2),
+        w2: 1,
+        x2: 0,
+        y2: 1,
+        z2: 0,
+        norm2: Math.sqrt(2),
+    };
+
+    let actions = {
+        reset_quaternion1: function() {
+            settings.w1 = 1;
+            settings.x1 = 1;
+            settings.y1 = 0;
+            settings.z1 = 0
+            refresh_displays(gui);
+        },
+        reset_quaternion2: function() {
+            settings.w2 = 1;
+            settings.x2 = 0;
+            settings.y2 = 1;
+            settings.z2 = 0
+            refresh_displays(gui);
+        },
+    };
+
+    let gui = get_default_lil_gui();
+    let quat1_folder = gui.addFolder('Quaternion 1 (blue)');
+    quat1_folder.add(settings, 'w1', -2.0, 2.0).name('w1');
+    quat1_folder.add(settings, 'x1', -2.0, 2.0).name('x1');
+    quat1_folder.add(settings, 'y1', -2.0, 2.0).name('y1');
+    quat1_folder.add(settings, 'z1', -2.0, 2.0).name('z1');
+    quat1_folder.add(settings, 'norm1').name('Norm 1').disable();
+    quat1_folder.add(actions, 'reset_quaternion1').name('Reset Quaternion 1');
+
+    let quat2_folder = gui.addFolder('Quaternion 2 (green)');
+    quat2_folder.add(settings, 'w2', -2.0, 2.0).name('w2');
+    quat2_folder.add(settings, 'x2', -2.0, 2.0).name('x2');
+    quat2_folder.add(settings, 'y2', -2.0, 2.0).name('y2');
+    quat2_folder.add(settings, 'z2', -2.0, 2.0).name('z2');
+    quat2_folder.add(settings, 'norm2').name('Norm 2').disable();
+    quat2_folder.add(actions, 'reset_quaternion2').name('Reset Quaternion 2');
+
+    engine.animation_loop(function() {
+        let p = [settings.w1, settings.x1, settings.y1, settings.z1];
+        let q = [settings.w2, settings.x2, settings.y2, settings.z2];
+        draw_quaternion(engine, p, 0x145DA0)
+        draw_quaternion(engine, q, 0x21B6A8)
+        visualize_multiplication(engine, p, q)
+
+        let p_conj = conjugate(p);
+        let q_conj = conjugate(q);
+        draw_quaternion(engine, p_conj, 0x145DA0)
+        draw_quaternion(engine, q_conj, 0x21B6A8)
+        visualize_multiplication(engine, p_conj, q_conj)
+
+        settings.norm1 = frobenius_norm_matrix(p).toString();
+        settings.norm2 = frobenius_norm_matrix(q).toString();
+        refresh_displays(gui);
+    });
 </script>
 </body>
 </html>
