@@ -37,10 +37,10 @@
         engine.draw_debug_vector([0, 0, 0], [q[1], q[2], q[3]], 0.035, undefined, color);
         let delta = 0.1;
         engine.draw_debug_line(
-            [q[1], q[2], q[3] - q[0] - delta],
-            [q[1], q[2], q[3] + q[0] + delta],
+            [q[1], q[2], q[3] - Math.abs(q[0]) - delta],
+            [q[1], q[2], q[3] + Math.abs(q[0]) + delta],
             0.015, undefined, 0);
-        engine.draw_debug_sphere([q[1], q[2], q[3] + q[0]], 0.05, color, 1, 5);
+        engine.draw_debug_sphere([q[1], q[2], q[3] + q[0]], 0.07, color, 1, 20);
         for(let h = 0; h < Math.abs(q[0]) + delta; h += 0.1) {
             engine.draw_debug_sphere([q[1], q[2], q[3] + h], 0.02, 0, 1, 5);
             engine.draw_debug_sphere([q[1], q[2], q[3] - h], 0.02, 0, 1, 5);
@@ -66,8 +66,8 @@
         let w2v1 = mul_matrix_scalar(v1, w2);
         let v1dotv2 = dot_product(v1, v2);
         engine.draw_debug_vector([0, 0, 0], v1xv2, 0.035, undefined, 0x2332A2, 0.2);
-        engine.draw_debug_vector(v1xv2, add_matrix_matrix(w1v2, v1xv2), 0.035, undefined, 0x2332A2, 0.2);
-        engine.draw_debug_vector(add_matrix_matrix(w1v2, v1xv2), add_matrix_matrix(add_matrix_matrix(w1v2, v1xv2), w2v1), 0.035, undefined, 0x2332A2, 0.2);
+        engine.draw_debug_vector(v1xv2, add_matrix_matrix(w2v1, v1xv2), 0.035, undefined, 0x2332A2, 0.2);
+        engine.draw_debug_vector(add_matrix_matrix(w2v1, v1xv2), add_matrix_matrix(add_matrix_matrix(w2v1, v1xv2), w1v2), 0.035, undefined, 0x2332A2, 0.2);
         let pq = mult_quaternions(p, q);
         draw_quaternion(engine, pq, 0x000000);
     }
@@ -75,11 +75,6 @@
     function conjugate(p) {
         return [p[0], -p[1], -p[2], -p[3]];
     }
-
-    let engine = ThreeEngine.new_default_3d();
-    //engine.add_suzanne_monkey_as_mesh_object(0x00eeff);
-    //engine.toggle_mesh_object_wireframe_visibility(0);
-
 
     let settings = {
         w1: 1,
@@ -92,6 +87,9 @@
         y2: 1,
         z2: 0,
         norm2: Math.sqrt(2),
+        draw_conjugates: false,
+        product: 0,
+        product_norm: 0,
     };
 
     let actions = {
@@ -112,6 +110,7 @@
     };
 
     let gui = get_default_lil_gui();
+
     let quat1_folder = gui.addFolder('Quaternion 1 (blue)');
     quat1_folder.add(settings, 'w1', -2.0, 2.0).name('w1');
     quat1_folder.add(settings, 'x1', -2.0, 2.0).name('x1');
@@ -128,6 +127,14 @@
     quat2_folder.add(settings, 'norm2').name('Norm 2').disable();
     quat2_folder.add(actions, 'reset_quaternion2').name('Reset Quaternion 2');
 
+    gui.add(settings, 'draw_conjugates').name('Draw Conjugates');
+
+    let output_folder = gui.addFolder('Q1*Q2');
+    output_folder.add(settings, 'product').name('Components').disable()
+    output_folder.add(settings, 'product_norm').name('Norm Q1*Q2').disable()
+
+    let engine = ThreeEngine.new_default_3d();
+
     engine.animation_loop(function() {
         let p = [settings.w1, settings.x1, settings.y1, settings.z1];
         let q = [settings.w2, settings.x2, settings.y2, settings.z2];
@@ -135,14 +142,19 @@
         draw_quaternion(engine, q, 0x21B6A8)
         visualize_multiplication(engine, p, q)
 
-        let p_conj = conjugate(p);
-        let q_conj = conjugate(q);
-        draw_quaternion(engine, p_conj, 0x145DA0)
-        draw_quaternion(engine, q_conj, 0x21B6A8)
-        visualize_multiplication(engine, p_conj, q_conj)
+        if(settings.draw_conjugates) {
+            let p_conj = conjugate(p);
+            let q_conj = conjugate(q);
+            draw_quaternion(engine, p_conj, 0x145DA0)
+            draw_quaternion(engine, q_conj, 0x21B6A8)
+            visualize_multiplication(engine, p_conj, q_conj)
+        }
 
         settings.norm1 = frobenius_norm_matrix(p).toString();
         settings.norm2 = frobenius_norm_matrix(q).toString();
+        settings.product = mult_quaternions(p, q).toString();
+        settings.product_norm = frobenius_norm_matrix(mult_quaternions(p, q)).toString();
+
         refresh_displays(gui);
     });
 </script>
